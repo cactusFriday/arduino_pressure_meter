@@ -1,7 +1,7 @@
 #include "GyverStepper.h"
 #include <Wire.h>
 #include "hsc_ssc_i2c.h"
-#include <TroykaI2CHub.h>
+
 
 // define working area parameters
 #define WIDTH         11500     //ширина измеримой области
