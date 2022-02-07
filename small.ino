@@ -4,18 +4,17 @@
 #include <TroykaI2CHub.h>
 
 // define working area parameters
-#define GAP_L         11500     //длина маленькой щели
-#define DEPTH         5000      //высота лопаток
-#define CENTER_NUMS   5         //количество шагов по Z по центру
-#define CENTER_X_NUMS 10        //количество шагов по Х по центру
-#define EDGE_STRIDE   100       //малый шаг у края по Z
-#define EDGE_NUMS     15        //количество шагов по Z у края
-#define EDGE_X_NUMS   50        //количество шагов по Х у края
+#define WIDTH         11500     //ширина измеримой области
+#define HEIGHT        5000      //высота измеримой области
+#define Z_STEPS       5         //количество шагов по Z
+#define X_STEPS       10        //количество шагов по Х
+
+#define PRESS_MEAS_ERROR 40     // На сколько нужно уменьшить "нулевое" давление
+// Есть ошибка: при нулевом давлении показывает больше нуля,
+// Мы видели, что 40 Па, поэтому отнимаем 40.
 
 // define sensor parameters
 #define MEAS_DELAY      150         //Сколько необходимо ждать перед замером
-#define CH0             0           //Канал, полученный со сканера для основного датчика
-#define CH1             1           //Канал, полученный со сканера для датчика в трубе
 #define SLAVE_ADDR      0x28        //Адрес датчика
 #define OUTPUT_MIN      1638.4      //10 % от 2^14
 #define OUTPUT_MAX      14745.4     //90 % от 2^14
@@ -29,31 +28,27 @@
 // Z stepper
 #define STEPZ_PIN   8
 #define DIRZ_PIN    7
-// common enable pin
-#define EN_PIN      12
 
 // *define stepper parameters*
 #define step_speed 1000              //скорость
-#define step_accel 0              //ускорение
+#define step_accel 0                 //ускорение
 
-// Задержка на переключение STEP пина у драйвера (для стабильности больше чем дефолтная у A4988, а у него 1 мкс)
+// Задержка на переключение STEP пина у драйвера 
+// (для стабильности больше чем дефолтная у A4988, а у него 1 мкс)
 // one step is 1.8 degree -> 200 steps per full rotate
 GStepper< STEPPER2WIRE> stepperX(200, STEPX_PIN, DIRX_PIN);
 GStepper< STEPPER2WIRE> stepperZ(200, STEPZ_PIN, DIRZ_PIN);
 
-TroykaI2CHub splitter;
-
 // прототипы функций
 void move_stepperX(int16_t x);
 void move_stepperZ(int16_t z);
-void measure();
 void measure_env();
 void move_measuring(byte m_num);
 void refresh_xyz();
 void print_table();
 void control();
 
-// глобальные переменные для координат
+// глобальная структура для координат
 struct Bup {
   int x;
   int z;
@@ -63,13 +58,9 @@ Bup Bkup;
 
 String pressure;        // переменная для давления
 String pressure_m;
-String pressure_m_env;
 String temp;            // переменная для температуры
-String p_env;
-String t_env;
 int num_exp = 0;        // номер эксперимента
 
-int stride;             //расстояние шага по X
 unsigned long timer;
 
 void setup() {
@@ -79,15 +70,12 @@ void setup() {
   while (!Serial) {}
   // печатаем сообщение об успешной инициализации Serial-порта
   Serial.println("Serial init OK");
-  // начало работы с I²C хабом
-  splitter.begin();
-  Serial.println("Splitter init OK");
+
   delay(100);
-  // Устанавливаем изначальную шину на основной датчик
-  splitter.setBusChannel(CH0);
 
   Bkup.x = 0;
   Bkup.z = 0;
+
   stepperX.setAcceleration(step_accel);
   stepperX.setSpeed(step_speed);
   stepperX.reset();
@@ -102,6 +90,7 @@ void loop() {
   control();
 }
 
+
 // Функция для перемещения одного мотора Х
 void move_stepperX(int16_t x) {
   stepperX.setSpeed(step_speed);
@@ -115,6 +104,8 @@ void move_stepperX(int16_t x) {
     refresh_xyz();
   }
 }
+
+
 // Функция для перемещения одного мотора Z
 void move_stepperZ(int16_t z) {
   stepperZ.setSpeed(step_speed);
@@ -129,80 +120,59 @@ void move_stepperZ(int16_t z) {
   }
 }
 
+
+// Функция всего алгоритма измерений
 void move_measuring() {
   stepperX.reset();
   stepperZ.reset();
   refresh_xyz();
   Serial.println("Приступаем к измерениям...");
-  Serial.print("[N],\t[X],\t[Z],\t[P],\t[P_m],\t[T],\t[P_env],\t[P_env_m],\t[T_env]\n");  //шапка таблицы
+  Serial.print("[N],\t[X],\t[Z],\t[P],\t[P_m],\t[T]\n");  //шапка таблицы
   // измерения одной канавки туда и обратно
   boolean isNear = false;
   int dir = -1;
-  //****************************************Переходим к измерению маленькой щели****************************************
+
   num_exp = 1;
-  stride = GAP_L / CENTER_X_NUMS;                            //размер шага по Х
-  int z_edge = EDGE_STRIDE * EDGE_NUMS;                      //высота измельченной области
-  int z_center = DEPTH - 2 * z_edge;                         //высота центральной области
-  int x_edge_stride = GAP_L / EDGE_X_NUMS;                   //размер шага у краев по Х
-  int z_center_stride = z_center / CENTER_NUMS;                  //размер шага в центральной области по Z
-  //  верхний слой мельченый
-  for (byte i = 0; i < EDGE_NUMS; i++) {
+  int x_stride = WIDTH / X_STEPS;                 //размер шага по Х
+  int z_stride = HEIGHT / Z_STEPS;                //размер шага по Z
+
+  //Цикл для прохода по квадрату
+  // Датчик будет двигаться змейкой в пределах квадрата снизу вверх
+  //    +----+----+--->
+  //    |
+  //    +--+----+----+
+  //                 |
+  //    +----+----+--+
+  // Измерения будут проходить каждый шаг с задержкой перед измерением.
+
+  for (byte i = 0; i < Z_STEPS; i++) {
     dir *= -1;
-    for (byte j = 0; j < EDGE_X_NUMS; j++) {
-      measure_env(0);
-      measure_env(1);
+    for (byte j = 0; j < X_STEPS; j++) {
+      // Двигаемся по Х
+      measure_env();
       print_table();
       num_exp++;
-      move_stepperX(Bkup.x + (dir * x_edge_stride));
+      move_stepperX(Bkup.x + (dir * x_stride));
     }
-    measure_env(0);
-    measure_env(1);
+    // Двигаемся по Z
+    measure_env();
     print_table();
     num_exp++;
-    move_stepperZ(Bkup.z + EDGE_STRIDE);
-  }
-  //Средний слой с большими шагом
-  for (byte i = 0; i < CENTER_NUMS; i++) {
-    dir *= -1;
-    for (byte j = 0; j < CENTER_X_NUMS; j++) {
-      measure_env(0);
-      measure_env(1);
-      print_table();
-      num_exp++;
-      move_stepperX(Bkup.x + (dir * stride));
-    }
-    measure_env(0);
-    measure_env(1);
-    print_table();
-    num_exp++;
-    move_stepperZ(Bkup.z + z_center_stride);
-  }
-  //  последний нижний измельченный слой
-  for (byte i = 0; i < EDGE_NUMS; i++) {
-    dir *= -1;
-    for (byte j = 0; j < EDGE_X_NUMS; j++) {
-      measure_env(0);
-      measure_env(1);
-      print_table();
-      num_exp++;
-      move_stepperX(Bkup.x + (dir * x_edge_stride));
-    }
-    measure_env(0);
-    measure_env(1);
-    print_table();
-    num_exp++;
-    move_stepperZ(Bkup.z + EDGE_STRIDE);
+    move_stepperZ(Bkup.z + z_stride);
   }
 }
+
 
 void refresh_xyz() {
   Bkup.x = stepperX.getCurrent();
   Bkup.z = stepperZ.getCurrent();
 }
 
-// Функция для измерения параметров вторым датчиком
-void measure_env(byte num) {
+
+// Функция для измерения параметров датчиком
+void measure_env() {
   delay(MEAS_DELAY);
+
   byte i = 0;
   float temp_p = 0.0, tot_p = 0.0;
   float temp_t = 0.0, tot_t = 0.0;
@@ -211,10 +181,7 @@ void measure_env(byte num) {
   struct cs_raw ps;
   float p, t;
   char p_str[10];
-  // Меняем шину I2C на второй датчик
-  if (num == 1) {
-    splitter.setBusChannel(CH1);
-  }
+
   // Проводим 10 измерений, чтобы потом взять среднее
   for (byte i = 0; i < 10; i++) {
     // вызов функции для получения данных с датчика и занесения их в структуру ps
@@ -232,21 +199,16 @@ void measure_env(byte num) {
     } else {
     }
   }
-  // Меняем шину I2C на основной датчик
-  if (num == 1) {
-    float temp_p = (tot_p / (float)final_i) - 40.0;
-    p_env = temp_p;
-    t_env = tot_t / (float)final_i;
-    pressure_m_env = (max_p - min_p) / temp_p;
-    splitter.setBusChannel(CH0);
-  } else {
-    float temp_p = (tot_p / (float)final_i) - 40.0;
-    pressure = temp_p;
-    temp = tot_t / (float)final_i;
-    pressure_m = (max_p - min_p) / temp_p;
-  }
+
+  // Записываем результат в глобальные переменные
+  float temp_p = (tot_p / (float)final_i) - (float)PRESS_MEAS_ERROR;
+  pressure = temp_p;
+  temp = tot_t / (float)final_i;
+  pressure_m = (max_p - min_p) / temp_p;
 }
 
+
+// Выводит результат одного шага измерений через запятую (CSV-format)
 void print_table() {
   Serial.print(num_exp);
   Serial.print(",\t");
@@ -259,12 +221,6 @@ void print_table() {
   Serial.print(pressure_m);
   Serial.print(",\t");
   Serial.print(temp);
-  Serial.print(",\t");
-  Serial.print(p_env);
-  Serial.print(",\t");
-  Serial.print(pressure_m_env);
-  Serial.print(",\t");
-  Serial.print(t_env);
   Serial.print("\n");
 }
 
