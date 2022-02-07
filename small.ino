@@ -201,7 +201,7 @@ void measure_env() {
   }
 
   // Записываем результат в глобальные переменные
-  float temp_p = (tot_p / (float)final_i) - (float)PRESS_MEAS_ERROR;
+  temp_p = (tot_p / (float)final_i) - (float)PRESS_MEAS_ERROR;
   pressure = temp_p;
   temp = tot_t / (float)final_i;
   pressure_m = (max_p - min_p) / temp_p;
