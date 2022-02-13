@@ -21,7 +21,6 @@ WITDH, HEIGHT = (2. * R,) * 2
 }
 Переместиться в самый низ окружности
 Замер
-[DONE]
 """
 def turtle_go():
     global X, Y
@@ -84,6 +83,7 @@ def main():
         measure(next_x)
     # Последняя нижняя точка окружности
     move_y(-R)
+    print("\nLAST DOT:\n")
     next_x = calculate_next_x(Y)
     move_x(-next_x)
     output_coords()
