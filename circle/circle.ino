@@ -155,7 +155,7 @@ void move_measuring() {
 
   for (int i = 0; i < z_steps; i++) {
     move_stepperZ(stepperZ.getCurrent() - Z_STEP);
-    int chord_l = sqrt(sqr(RADIUS) - sqr(stepperZ.getCurrent()));
+    uint16_t chord_l = sqrt(RADIUS*RADIUS - stepperZ.getCurrent()*stepperZ.getCurrent());
     move_stepperX(-chord_l);
     move_chord(chord_l);
   }
