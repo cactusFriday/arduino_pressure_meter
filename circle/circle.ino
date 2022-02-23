@@ -35,7 +35,7 @@
 #define DIRZ_PIN    7
 
 // *define stepper parameters*
-#define step_speed 1000              //скорость
+#define step_speed 400              //скорость
 #define step_accel 0                 //ускорение
 
 // Задержка на переключение STEP пина у драйвера 
