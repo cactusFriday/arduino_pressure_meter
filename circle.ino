@@ -155,7 +155,7 @@ void move_measuring() {
 
   for (int i = 0; i < z_steps; i++) {
     move_stepperZ(stepperZ.getCurrent() - Z_STEP);
-    int chord_l = sqrt(RADIUS**2 - stepperZ.getCurrent()**2);
+    int chord_l = sqrt(sqr(RADIUS) - sqr(stepperZ.getCurrent()));
     move_stepperX(-chord_l);
     move_chord(chord_l);
   }
@@ -175,7 +175,7 @@ void move_chord(int16_t chord_l) {
   print_table();
 
   int16_t full_chord = 2 * chord_l;
-  steps = (int) (full_chord / X_STEP);
+  int16_t steps = (full_chord / X_STEP);
 
   // В цикле едем в правый конец хорды и измеряем
   for (int i = 0; i < steps; i++) {
