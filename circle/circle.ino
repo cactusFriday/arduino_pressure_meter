@@ -141,7 +141,7 @@ void move_measuring() {
   двигаясь вправо - проводит измерения,
   перемещается на следующую хорду в левый конец.*/
 
-  int z_steps = (int)(HEIGHT / X_STEP)
+  int z_steps = (int)(HEIGHT / X_STEP);
 
   stepperX.reset();
   stepperZ.reset();
