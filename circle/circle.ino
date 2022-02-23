@@ -41,8 +41,8 @@
 // Задержка на переключение STEP пина у драйвера 
 // (для стабильности больше чем дефолтная у A4988, а у него 1 мкс)
 // one step is 1.8 degree -> 200 steps per full rotate
-GStepper< STEPPER2WIRE> stepperX(200, STEPX_PIN, DIRX_PIN);
-GStepper< STEPPER2WIRE> stepperZ(200, STEPZ_PIN, DIRZ_PIN);
+GStepper< STEPPER2WIRE> stepperX(400, STEPX_PIN, DIRX_PIN);
+GStepper< STEPPER2WIRE> stepperZ(400, STEPZ_PIN, DIRZ_PIN);
 
 // прототипы функций
 void move_stepperX(int16_t x);
