@@ -143,6 +143,8 @@ void move_measuring() {
 
   int z_steps = (int)(HEIGHT / X_STEP);
 
+  Serial.println("Z_STEPS");
+  Serial.println(z_steps);
   stepperX.reset();
   stepperZ.reset();
   refresh_xyz();
@@ -155,7 +157,9 @@ void move_measuring() {
   int32_t chord_l = 0;
   for (int i = 0; i < z_steps; i++) {
     move_stepperZ(stepperZ.getCurrent() - Z_STEP);
-    chord_l = int(sqrt(RADIUS*RADIUS - stepperZ.getCurrent()*stepperZ.getCurrent()));
+    int32_t r2 = RADIUS*RADIUS;
+    int32_t z2 = abs(stepperZ.getCurrent()*stepperZ.getCurrent());
+    chord_l = int(sqrt(r2 - z2));
     move_stepperX(-chord_l);
     move_chord(chord_l);
   }
