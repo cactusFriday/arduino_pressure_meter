@@ -155,10 +155,11 @@ void move_measuring() {
   measure_env();
   print_table();
   int32_t chord_l = 0;
+  uint32_t r2 = pow(RADIUS, 2);
+  uint32_t z2 = 0;
   for (int i = 0; i < z_steps; i++) {
     move_stepperZ(stepperZ.getCurrent() - Z_STEP);
-    int32_t r2 = RADIUS*RADIUS;
-    int32_t z2 = abs(stepperZ.getCurrent()*stepperZ.getCurrent());
+    z2 = abs(Bkup.z * Bkup.z);
     chord_l = int(sqrt(r2 - z2));
     move_stepperX(-chord_l);
     move_chord(chord_l);

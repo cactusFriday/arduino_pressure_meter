@@ -70,7 +70,7 @@ def main():
     output_coords()
     turtle_go()
     # Начинаем мерить внутри круга в цикле
-    hords_amount = int(HEIGHT / STEP_X) - 2
+    hords_amount = int(HEIGHT / STEP_Y) - 2
 
     for n in range(hords_amount + 1):
         # перемещаем ниже на 1 шаг
