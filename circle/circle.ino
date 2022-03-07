@@ -141,7 +141,7 @@ void move_measuring() {
   двигаясь вправо - проводит измерения,
   перемещается на следующую хорду в левый конец.*/
 
-  int z_steps = (int)(HEIGHT / X_STEP);
+  int z_steps = (int)(HEIGHT / Z_STEP);
 
   Serial.println("Z_STEPS");
   Serial.println(z_steps);
@@ -151,15 +151,23 @@ void move_measuring() {
   Serial.println("Приступаем к измерениям...");
   Serial.print("[N],\t[X],\t[Z],\t[P],\t[P_m],\t[T]\n");  //шапка таблицы
 
+  // Move to the top of the circle and measure first point
   move_stepperZ(RADIUS);
   measure_env();
   print_table();
+
+  // init vars for further calculations
   int32_t chord_l = 0;
+  // Radius ^ 2 
   uint32_t r2 = pow(RADIUS, 2);
   uint32_t z2 = 0;
+
   for (int i = 0; i < z_steps; i++) {
+    // iterator for Z axis
     move_stepperZ(stepperZ.getCurrent() - Z_STEP);
-    z2 = abs(Bkup.z * Bkup.z);
+    // current Z^2 coord
+    z2 = abs(pow(Bkup.z, 2))
+    // chord length on the current Z position (r2 - const)
     chord_l = int(sqrt(r2 - z2));
     move_stepperX(-chord_l);
     move_chord(chord_l);
