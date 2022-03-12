@@ -152,7 +152,6 @@ void move_measuring() {
   Serial.print("[N],\t[X],\t[Z],\t[P],\t[P_m],\t[T]\n");  //шапка таблицы
 
   // Move to the top of the circle and measure first point
-  move_stepperZ(RADIUS);
   measure_env();
   print_table();
 
