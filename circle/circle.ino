@@ -165,7 +165,7 @@ void move_measuring() {
     // iterator for Z axis
     move_stepperZ(stepperZ.getCurrent() - Z_STEP);
     // current Z^2 coord
-    z2 = abs(pow(Bkup.z, 2))
+    z2 = pow(Bkup.z + RADIUS, 2);
     // chord length on the current Z position (r2 - const)
     chord_l = int(sqrt(r2 - z2));
     move_stepperX(-chord_l);
